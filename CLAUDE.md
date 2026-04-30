@@ -176,6 +176,57 @@ github.com/skip2/go-qrcode    v0.0.0   QR code PNG generation
 
 All cryptography uses Go standard library (`crypto/ecdsa`, `crypto/sha256`, `elliptic.P256`).
 
+## BNB Chain / BEP-20 Token Integration (Planned)
+
+The user owns a self-made BEP-20 token on BNB Chain (Binance Smart Chain).
+Three integration options are planned — awaiting token contract address and use-case confirmation:
+
+### Option 1 — Balance Display (Easiest)
+Query BSC via public RPC and show the user's BEP-20 token balance directly
+on the Billionaire dashboard alongside the native chain balance.
+
+- No new backend needed — pure frontend `eth_call` to BSC RPC
+- Files to add: `ui/static/bnb.js` — reads balance via BSC JSON-RPC
+- Files to edit: `ui/static/index.html` — add BNB token balance row to Node Info card
+
+### Option 2 — Token Bridge (Medium)
+Users lock BEP-20 tokens on BSC → equivalent tokens minted on Billionaire chain.
+Locked tokens can then be used for staking and medicine registration fees.
+
+```
+BNB Chain                        Billionaire Chain
+[BEP-20 Token Contract]  ──→──  [Billionaire Token]
+Lock N tokens            bridge  Credit N tokens
+                                 → Stake → Validate blocks
+```
+
+- New file: `bnb/bridge.go` — watches BSC lock events via RPC polling
+- New file: `bnb/client.go` — BSC JSON-RPC client (eth_call, eth_getLogs)
+- Edit: `core/transaction.go` — add `TxBridgeIn` / `TxBridgeOut` tx types
+- Edit: `api/handlers.go` — add `POST /bridge/deposit`, `POST /bridge/withdraw`
+
+### Option 3 — BEP-20 as Staking Token (Advanced)
+Billionaire chain validator eligibility is gated by BEP-20 token ownership.
+Only wallets holding ≥ MinStake of the BEP-20 token on BSC can register as validators.
+
+- New file: `bnb/oracle.go` — polls BSC every N blocks, caches token balances
+- Edit: `consensus/validator.go` — check oracle balance before `Register()`
+- Edit: `config/config.go` — add `BNBTokenAddress`, `BSCRpcURL` constants
+
+### BSC Configuration (fill in when ready)
+```go
+// config/config.go
+BNBTokenAddress = "0x..."           // Your BEP-20 contract address
+BSCRpcURL       = "https://bsc-dataseed.binance.org"
+BSCChainID      = 56
+```
+
+### Required Information from User
+- BEP-20 token **contract address** (`0x...`)
+- Token **name and symbol**
+- Chosen **integration option** (1, 2, or 3)
+- Whether medicine registration fees should be paid in BEP-20 or native token
+
 ## Development Branch
 
 Active development: `claude/build-pos-blockchain-7kEJz`
