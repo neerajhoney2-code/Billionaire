@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Medicine QR Scanner</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    #scannerBox {
+      position: relative; width: 100%; max-width: 480px;
+      margin: 0 auto; border-radius: 12px; overflow: hidden;
+      border: 2px solid #1e3a5f;
+    }
+    #video { width: 100%; display: block; }
+    #overlay {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .scan-frame {
+      width: 60%; height: 60%; border: 3px solid #4fc3f7;
+      border-radius: 8px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5);
+    }
+    #resultCard {
+      max-width: 480px; margin: 20px auto; padding: 20px;
+      border-radius: 12px; display: none; text-align: center;
+    }
+    #resultCard.genuine { background: #1b4332; border: 2px solid #69f0ae; }
+    #resultCard.fake    { background: #3b0f0f; border: 2px solid #ff5252; }
+    #resultCard h2 { font-size: 1.4rem; margin-bottom: 12px; }
+    #resultCard .genuine-icon { color: #69f0ae; font-size: 3rem; }
+    #resultCard .fake-icon    { color: #ff5252; font-size: 3rem; }
+    #medDetails { text-align: left; margin-top: 14px; font-size: 0.85rem; }
+    #medDetails .row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    #scanAgain { margin-top: 14px; }
+    canvas { display: none; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⛓ Medicine Verification</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/scanner.html">Scan QR</a>
+  </nav>
+</header>
+
+<div class="container">
+  <div style="text-align:center; margin-bottom:20px">
+    <p style="color:#90a4ae;font-size:0.9rem">Point your camera at a medicine QR code to verify authenticity</p>
+  </div>
+
+  <div id="scannerBox">
+    <video id="video" autoplay muted playsinline></video>
+    <div id="overlay"><div class="scan-frame"></div></div>
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div id="resultCard">
+    <div id="resultIcon"></div>
+    <h2 id="resultTitle"></h2>
+    <p id="resultMessage" style="color:#cfd8dc;margin-top:8px;font-size:0.9rem"></p>
+
+    <div id="medDetails"></div>
+
+    <button class="btn" id="scanAgain" onclick="resumeScan()" style="margin-top:16px">Scan Again</button>
+  </div>
+
+  <div style="max-width:480px;margin:16px auto">
+    <div class="card">
+      <h2>Manual Verify</h2>
+      <div style="display:flex;gap:10px">
+        <input id="manualHash" placeholder="Enter QR hash" style="flex:1;background:#1a2a3a;border:1px solid #2a4a6a;border-radius:8px;padding:8px 12px;color:#e0e6f0;font-size:0.85rem">
+        <button class="btn" onclick="manualVerify()">Verify</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- jsQR for client-side QR decoding -->
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+let scanning = true;
+
+async function startCamera() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    video.srcObject = stream;
+    video.play();
+    requestAnimationFrame(tick);
+  } catch(e) {
+    alert('Camera access denied. Use Manual Verify below.');
+  }
+}
+
+function tick() {
+  if (!scanning) return;
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height);
+    if (code) {
+      scanning = false;
+      const url = code.data;
+      // Extract qrHash from URL like http://host/verify/<hash>
+      const parts = url.split('/verify/');
+      const hash = parts.length > 1 ? parts[1] : url;
+      verifyHash(hash);
+      return;
+    }
+  }
+  requestAnimationFrame(tick);
+}
+
+async function verifyHash(hash) {
+  try {
+    const resp = await fetch('/verify/' + hash);
+    const data = await resp.json();
+    showResult(data);
+  } catch(e) {
+    showError('Network error: ' + e.message);
+  }
+}
+
+function showResult(data) {
+  const card = document.getElementById('resultCard');
+  const icon = document.getElementById('resultIcon');
+  const title = document.getElementById('resultTitle');
+  const msg = document.getElementById('resultMessage');
+  const details = document.getElementById('medDetails');
+
+  card.style.display = 'block';
+  card.className = data.genuine ? 'genuine' : 'fake';
+  icon.innerHTML = data.genuine ? '<div class="genuine-icon">✓</div>' : '<div class="fake-icon">✗</div>';
+  title.textContent = data.genuine ? 'GENUINE' : 'NOT VERIFIED';
+  msg.textContent = data.message;
+
+  details.innerHTML = '';
+  if (data.medicine) {
+    const m = data.medicine;
+    const expiry = m.expiry_date ? new Date(m.expiry_date / 1e6).toLocaleDateString() : 'N/A';
+    const manufDate = m.manuf_date ? new Date(m.manuf_date / 1e6).toLocaleDateString() : 'N/A';
+    const rows = [
+      ['Batch ID', m.batch_id],
+      ['Name', m.name],
+      ['Manufacturer', m.manufacturer.slice(0,20) + '…'],
+      ['Manufactured', manufDate],
+      ['Expiry', expiry],
+      ['Status', m.status],
+      ['Supply Stages', m.supply_chain ? m.supply_chain.length : 0],
+    ];
+    rows.forEach(([label, val]) => {
+      details.innerHTML += `<div class="row"><span style="color:#90a4ae">${label}</span><span>${val}</span></div>`;
+    });
+    if (m.supply_chain && m.supply_chain.length > 0) {
+      details.innerHTML += '<div style="margin-top:10px;color:#64b5f6;font-weight:600">Chain of Custody</div>';
+      m.supply_chain.forEach(s => {
+        const ts = new Date(s.timestamp / 1e6).toLocaleString();
+        details.innerHTML += `<div class="row"><span style="color:#90a4ae">${s.role}</span><span>${s.location} · ${ts}</span></div>`;
+      });
+    }
+  }
+}
+
+function showError(msg) {
+  showResult({ genuine: false, message: msg });
+}
+
+function resumeScan() {
+  document.getElementById('resultCard').style.display = 'none';
+  scanning = true;
+  requestAnimationFrame(tick);
+}
+
+function manualVerify() {
+  const hash = document.getElementById('manualHash').value.trim();
+  if (!hash) return;
+  scanning = false;
+  verifyHash(hash);
+}
+
+startCamera();
+</script>
+</body>
+</html>

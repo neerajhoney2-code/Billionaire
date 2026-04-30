@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Billionaire Blockchain — Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>⛓ Billionaire Blockchain</h1>
+  <nav>
+    <a href="/">Dashboard</a>
+    <a href="/scanner.html">Scan QR</a>
+    <span id="wsStatus"><span class="dot dot-red" id="wsDot"></span>Live</span>
+  </nav>
+</header>
+
+<div class="container">
+
+  <!-- Stats row -->
+  <div class="grid" style="margin-bottom:20px">
+    <div class="card">
+      <h2>Node Info</h2>
+      <div class="stat-row"><span class="stat-label">Chain Height</span><span class="stat-val" id="height">—</span></div>
+      <div class="stat-row"><span class="stat-label">Pending Txs</span><span class="stat-val" id="pending">—</span></div>
+      <div class="stat-row"><span class="stat-label">Validators</span><span class="stat-val" id="validatorCount">—</span></div>
+      <div class="stat-row"><span class="stat-label">Total Stake</span><span class="stat-val" id="totalStake">—</span></div>
+      <div class="stat-row"><span class="stat-label">Medicines</span><span class="stat-val" id="medCount">—</span></div>
+    </div>
+    <div class="card">
+      <h2>Quick Actions</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="btn" onclick="mine()">Mine Block</button>
+        <button class="btn" onclick="generateWallet()">New Wallet</button>
+        <button class="btn" onclick="validateChain()">Validate Chain</button>
+      </div>
+      <div class="log" id="actionLog">Ready.</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- Send Transaction -->
+    <div class="card">
+      <h2>Send Transaction</h2>
+      <form onsubmit="sendTx(event)">
+        <div class="row">
+          <input id="txSender" placeholder="Sender address" required>
+          <input id="txRecipient" placeholder="Recipient address" required>
+        </div>
+        <div class="row">
+          <input id="txAmount" type="number" placeholder="Amount" min="1" required>
+          <input id="txFee" type="number" placeholder="Fee" min="0" value="0">
+          <input id="txNonce" type="number" placeholder="Nonce" min="0" value="0">
+        </div>
+        <div class="row">
+          <input id="txPubKey" placeholder="Sender public key (hex)" required>
+          <input id="txSig" placeholder="Signature (hex)" required>
+        </div>
+        <button class="btn" type="submit">Submit</button>
+      </form>
+    </div>
+
+    <!-- Stake -->
+    <div class="card">
+      <h2>Stake / Unstake</h2>
+      <form onsubmit="stake(event)">
+        <div class="row">
+          <input id="stakeAddr" placeholder="Address" required>
+          <input id="stakePub" placeholder="Public key (hex)" required>
+        </div>
+        <div class="row">
+          <input id="stakeAmt" type="number" placeholder="Amount" min="100" required>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn" type="submit">Stake</button>
+          <button class="btn" type="button" onclick="unstake()">Unstake</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Register Medicine -->
+    <div class="card">
+      <h2>Register Medicine</h2>
+      <form onsubmit="registerMed(event)">
+        <div class="row">
+          <input id="medBatchID" placeholder="Batch ID" required>
+          <input id="medName" placeholder="Medicine name" required>
+        </div>
+        <div class="row">
+          <input id="medMfr" placeholder="Manufacturer address" required>
+          <input id="medPubKey" placeholder="Manufacturer public key" required>
+        </div>
+        <div class="row">
+          <input id="medPrivKey" placeholder="Manufacturer private key (for signing)">
+          <input id="medComposition" placeholder="Active ingredients">
+        </div>
+        <div class="row">
+          <input id="medQty" type="number" placeholder="Quantity" min="1" value="1000" required>
+          <input id="medLocation" placeholder="Location (city)" value="Mumbai">
+        </div>
+        <button class="btn btn-green" type="submit">Register &amp; Get QR</button>
+      </form>
+      <div id="qrResult" style="margin-top:12px;text-align:center"></div>
+    </div>
+
+    <!-- Validators table -->
+    <div class="card full-width">
+      <h2>Active Validators</h2>
+      <div style="overflow-x:auto">
+        <table id="validatorsTable">
+          <thead><tr><th>Address</th><th>Stake</th><th>Blocks</th><th>Slashes</th><th>Status</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Recent Blocks -->
+    <div class="card full-width">
+      <h2>Recent Blocks</h2>
+      <div style="overflow-x:auto">
+        <table id="blocksTable">
+          <thead><tr><th>#</th><th>Validator</th><th>Txs</th><th>Reward</th><th>Time</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Medicine Registry -->
+    <div class="card full-width">
+      <h2>Medicine Registry</h2>
+      <input id="medSearch" placeholder="Search by batch ID or name…" oninput="filterMeds()" style="width:100%;margin-bottom:12px;background:#1a2a3a;border:1px solid #2a4a6a;border-radius:8px;padding:8px 12px;color:#e0e6f0;font-size:0.85rem">
+      <div style="overflow-x:auto">
+        <table id="medsTable">
+          <thead><tr><th>Batch ID</th><th>Name</th><th>Manufacturer</th><th>Status</th><th>Expiry</th><th>Verify</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
